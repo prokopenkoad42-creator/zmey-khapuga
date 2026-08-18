@@ -78,6 +78,7 @@
   .shopItem button{font-size:14px;padding:7px 16px;margin-top:7px;border:none;border-radius:9px;background:#7cc24e;color:#15260d;font-weight:bold;cursor:pointer;box-shadow:0 3px 0 #4c7d2c}
   .shopItem button:disabled{background:#4a5a42;color:#8a9a82;box-shadow:none;cursor:default}
   #menuOpenBtn{position:fixed;top:64px;left:10px;z-index:7;width:46px;height:46px;border-radius:12px;background:rgba(20,30,20,.72);color:#fff;border:2px solid rgba(255,255,255,.3);font-size:22px;cursor:pointer}
+  #dashBtn{position:fixed;right:22px;bottom:30px;z-index:6;width:76px;height:76px;border-radius:50%;background:rgba(255,213,77,.75);color:#5a4500;border:3px solid rgba(255,255,255,.5);font-size:32px;touch-action:none;box-shadow:0 4px 12px rgba(0,0,0,.35)}
   #gameMenu .card button{display:block;width:260px;margin:6px auto}
   .btnGray{background:#8a8f7a!important;box-shadow:0 5px 0 #5c6152!important}
   #menuBtn:active{box-shadow:0 2px 0 #5c6152}
@@ -90,6 +91,7 @@
 
 <div id="hint" class="panel hidden"></div>
 <button id="menuOpenBtn" class="hidden">☰</button>
+<button id="dashBtn" class="hidden">⚡</button>
 <div id="lvlBanner" class="hidden"></div>
 <div id="pauseLbl" class="panel hidden" style="position:fixed;top:45%;left:50%;transform:translate(-50%,-50%);font-size:30px;font-weight:bold;color:#fff;z-index:5">⏸ ПАУЗА</div>
 
@@ -117,7 +119,8 @@
       <div class="cap">🔊 звук — после первого клика</div>
     </div>
     <div class="rules">
-      <p>🎮 <b>Управление:</b> камера едет за змеем. <kbd>←</kbd>/<kbd>→</kbd> (или <kbd>A</kbd>/<kbd>D</kbd>) — повороты, <kbd>↑</kbd>/<kbd>W</kbd> — ускориться, <kbd>↓</kbd>/<kbd>S</kbd> — притормозить. <kbd>P</kbd> — пауза.</p>
+      <p>🎮 <b>Управление:</b> камера едет за змеем. <kbd>←</kbd>/<kbd>→</kbd> (или <kbd>A</kbd>/<kbd>D</kbd>) — повороты, <kbd>↑</kbd>/<kbd>W</kbd> — газ, <kbd>↓</kbd>/<kbd>S</kbd> — тормоз, <kbd>Пробел</kbd> — рывок ⚡, <kbd>ESC</kbd> — меню, <kbd>P</kbd> — пауза.</p>
+      <p>🎯 <b>Миссии</b> чередуются: мобилизация, на время ⏱, доставка хвоста в пункт сбора 📦, охота на золотых 👑. Плюс внезапные события: авианалёт, паника, кофе-брейк, золотая лихорадка…</p>
       <p>🏁 <b>Уровни:</b> на каждом уровне нужно съесть цель по горожанам — дальше карта новая и всё быстрее и опаснее.</p>
       <p>🧔 Лови горожан — каждый встаёт в хвост‑очередь (+1, +10 очков).</p>
       <p>🤵 <b>Депутат</b> (жуёт деньги) — ловушка: −2 из хвоста. 👶 <b>Сын депутата</b>: −1.</p>
@@ -130,6 +133,7 @@
     </div>
     <div id="levelSelect"></div>
     <button id="musicBtnMain" class="lvlBtn" style="margin-top:8px">🎵 Музыка: ВКЛ</button>
+    <div id="bestLine" style="font-size:14px;color:#ffd54d;margin-top:8px"></div>
     <div id="iosTip" class="hidden" style="font-size:12px;color:#ffd54d;margin-top:8px">📱 Полный экран на iPhone: Поделиться → «На экран “Домой”» — и запускай игру с иконки</div>
     <button id="startBtn">ИГРАТЬ</button>
   </div>
@@ -742,6 +746,18 @@ function makeMonument(){
   const sh=rectShadow(102,80); sh.position.set(8,.7,7); g.add(sh);
   return g;
 }
+function makeDeliverZone(x,y){
+  const g=new THREE.Group();
+  const disk=new THREE.Mesh(new THREE.CylinderGeometry(140,140,2,28),new THREE.MeshLambertMaterial({color:0x57ff7a,transparent:true,opacity:.22,depthWrite:false}));
+  disk.position.y=1.5;g.add(disk);
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(140,3.5,8,44),mat(0x2ecc71));
+  ring.rotation.x=Math.PI/2;ring.position.y=3;g.add(ring);
+  const pole=new THREE.Mesh(new THREE.CylinderGeometry(2,2.5,95,8),mat(0xd8d8d0));pole.position.y=47;g.add(pole);
+  const flag=new THREE.Mesh(new THREE.BoxGeometry(36,22,2),mat(0x2ecc71));flag.position.set(19,80,0);g.add(flag);
+  const mark=new THREE.Mesh(new THREE.BoxGeometry(20,20,3),mat(0xffffff));mark.position.set(19,80,-.5);mark.scale.set(.5,.5,.5);g.add(mark);
+  g.position.set(x,0,y);
+  return g;
+}
 function makeItemMesh(kind){
   const g=new THREE.Group();
   if(kind==='bomb'){
@@ -810,21 +826,30 @@ function makeDroneMesh(){
 
 /* ============ УРОВНИ ============ */
 let level=1, caughtThisLevel=0;
-let up={speed:0,turn:0,magnet:0,armor:0};
+let up={speed:0,turn:0,magnet:0,armor:0,dash:0};
 let combo=0,comboT=0;
+let delivered=0,goldCaught=0,levelTime=0,deliverZone=null,deliverZoneMesh=null;
+let dashCd=0,dashT=0,dashWanted=false,panicT=0,goldRushT=0,eventT=25;
 const SHOP=[
   {k:'speed',icon:'🚀',name:'Скорость',desc:'+8% к скорости змея',max:5,cost:c=>40+25*c},
   {k:'turn',icon:'🌀',name:'Манёвр',desc:'+10% к скорости поворота',max:5,cost:c=>35+20*c},
   {k:'magnet',icon:'🧲',name:'Магнит',desc:'+15% к радиусу поимки',max:3,cost:c=>50+30*c},
-  {k:'armor',icon:'🛡',name:'Броня',desc:'поглощает одну потерю хвоста',max:3,cost:c=>45}
+  {k:'armor',icon:'🛡',name:'Броня',desc:'поглощает одну потерю хвоста',max:3,cost:c=>45},
+  {k:'dash',icon:'⚡',name:'Рывок',desc:'−0.8с к перезарядке рывка',max:3,cost:c=>40+25*c}
 ];
 function cfg(){
-  if(level===1)return{target:1,npcK:.9,traps:0,bombs:0,heroDelay:1e9,doorMin:1e9,doorMax:1e9,tutorial:true,boss:false};
+  if(level===1)return{target:1,npcK:.9,traps:0,bombs:0,heroDelay:1e9,doorMin:1e9,doorMax:1e9,tutorial:true,boss:false,mission:'classic',time:0};
   const l=level-1;
   const boss=level%5===0;
+  let mission='classic';
+  if(!boss){const m=level%4;mission=m===3?'timed':m===0?'deliver':m===1?'gold':'classic';}
+  const base=4+l*3;
+  let target=base,time=0;
+  if(mission==='timed')time=40+base*5;
+  if(mission==='deliver')target=Math.max(4,Math.round(base*.7));
+  if(mission==='gold')target=2+Math.floor(level/4);
   return {
-    boss,
-    target:4+l*3,
+    boss,mission,time,target,
     npcK:Math.min(1.45,1+(l-1)*.07),
     traps:Math.min(5,1+l),
     bombs:Math.min(6,2+l),
@@ -965,6 +990,14 @@ function buildWorld(){
   // кусты и цветы — декор без коллизий
   for(let i=0;i<nBush;i++){const p=randFreePos(18);const b=makeBush();b.position.set(p.x,0,p.y);b.rotation.y=rand(0,6);worldGroup.add(b);}
   for(let i=0;i<nFlow;i++){const p=randFreePos(6);const f=makeFlower();f.position.set(p.x,0,p.y);worldGroup.add(f);}
+  // пункт сбора для миссии доставки
+  if(C.mission==='deliver'){
+    let p=randFreePos(150);
+    for(let i=0;i<50;i++){p=randFreePos(150);if(dist2(p.x,p.y,WORLD_W/2,WORLD_D/2)>650*650)break;}
+    deliverZone={x:p.x,y:p.y,r:150};
+    deliverZoneMesh=makeDeliverZone(p.x,p.y);
+    worldGroup.add(deliverZoneMesh);
+  }
   // предметы и NPC
   for(let i=0;i<C.bombs;i++)spawnItem('bomb');
   spawnItem('energy');spawnItem('sneakers');spawnItem('coffee');
@@ -1079,6 +1112,10 @@ function losePeople(n){
   if(freed>0){sfx.free();snakeSay('Ай-ай!');}
   updateHUD();
 }
+function deliverPeople(){
+  for(const p of snake.people)removeAndDispose(worldGroup,p.mesh);
+  snake.people=[];
+}
 function boomAt(x,y,h,big){
   camShake=Math.min(26,camShake+(big?22:14));
   for(let i=0;i<(big?30:16);i++){
@@ -1112,7 +1149,8 @@ function spawnNPC(type,pos){
   const base={man:82,woman:78,runner:135,pensioner:42,deputy:34,son:46};
   const civ=!(type==='deputy'||type==='son');
   const sd=randi(0,3);
-  const gold=civ&&Math.random()<.08;
+  const gchance=goldRushT>0?.85:(C.mission==='gold'?.28:.08);
+  const gold=civ&&Math.random()<gchance;
   const n={type,x:pos.x,y:pos.y,angle:rand(0,Math.PI*2),
     speed:base[type]*rand(.9,1.1)*(civ?C.npcK:1),
     boostT:0,invuln:0,flash:0,stunT:0,phase:rand(0,10),wanderT:0,eatT:rand(0,2),
@@ -1145,7 +1183,8 @@ function npcUpdate(n,dt){
   }
   const fleeing=!trap&&dToSnake<300;
   let sp=n.stunT>0?0:n.speed*(n.boostT>0?1.9:1)*(fleeing?1.45:1)*(prot?1.3:1);
-  if(!trap)sp=Math.min(sp,n.boostT>0?320:238);
+  if(!trap&&panicT>0){sp*=1.3;if(Math.random()<dt*3)n.angle+=rand(-2,2);}
+  if(!trap)sp=Math.min(sp,n.boostT>0?330:238);
   n.x+=vx*sp*dt;n.y+=vy*sp*dt;
   keepInWorld(n,n.r);
   for(const o of obstacles){if(pushOutOfRect(n,n.r+2,o))n.angle+=rand(1.2,2.2);}
@@ -1173,11 +1212,13 @@ function npcUpdate(n,dt){
       combo=Math.min(5,combo+1);comboT=3;
       const gained=(n.gold?50:10)*combo;
       score+=gained;caughtThisLevel++;
+      if(n.gold)goldCaught++;
       say(n.x,n.y,72,'+'+gained+(combo>1?' 🔥×'+combo:''),n.gold?'#ffe100':'#c9f7a5');
       sfx.pop();sfx.slurp();
       snakeSay(pick(['Ням-ням!','Дай-дай!','Моё-моё!','Ещё!']));
       updateHUD();
-      if(caughtThisLevel>=C.target)levelComplete();
+      const done=C.mission==='gold'?goldCaught>=C.target:(C.mission!=='deliver'&&caughtThisLevel>=C.target);
+      if(done)levelComplete();
     }
   }
 }
@@ -1268,6 +1309,36 @@ function airBombsUpdate(dt){
     }
   }
   airBombs=airBombs.filter(b=>!b.dead);
+}
+
+/* ============ СЛУЧАЙНЫЕ СОБЫТИЯ ============ */
+function eventBanner(t){
+  const b=document.getElementById('lvlBanner');
+  b.innerHTML='<div class="bGoal">'+t+'</div>';
+  b.classList.remove('hidden');b.style.opacity=1;
+  clearTimeout(bannerTO);
+  bannerTO=setTimeout(()=>{b.style.opacity=0;bannerTO=setTimeout(()=>b.classList.add('hidden'),700);},1900);
+}
+function randomEvent(){
+  const e=pick(['airstrike','coffee','panic','goldrush','hero']);
+  if(e==='airstrike'){
+    eventBanner('💣 АВИАНАЛЁТ!');
+    for(let i=0;i<6;i++){
+      const a=rand(0,Math.PI*2),d=rand(140,520);
+      dropBomb(clamp(snake.x+Math.cos(a)*d,BORDER+60,WORLD_W-BORDER-60),
+               clamp(snake.y+Math.sin(a)*d,BORDER+60,WORLD_D-BORDER-60),rand(240,320));
+    }
+  }else if(e==='coffee'){
+    eventBanner('☕ КОФЕ-БРЕЙК! Жители ускорились');
+    for(const n of npcs)if(n.type!=='deputy'&&n.type!=='son')n.boostT=6;
+  }else if(e==='panic'){
+    eventBanner('🌪 ПАНИКА!');panicT=10;
+  }else if(e==='goldrush'){
+    eventBanner('👑 ЗОЛОТАЯ ЛИХОРАДКА!');goldRushT=12;
+  }else{
+    eventBanner('🦸 ПАТРУЛЬ!');
+    if(!hero)heroTimer=.1;
+  }
 }
 
 /* ============ ГЕРОЙ ============ */
@@ -1524,6 +1595,11 @@ function bubblesUpdate(dt){
 /* ============ ОБНОВЛЕНИЕ ============ */
 function update(dt){
   elapsed+=dt;
+  if(C.mission==='timed'){
+    levelTime-=dt;
+    document.getElementById('goal').textContent=Math.min(caughtThisLevel,C.target)+'/'+C.target+' · '+Math.max(0,Math.ceil(levelTime))+'с';
+    if(levelTime<=0){gameOver('⏱ ВРЕМЯ ВЫШЛО!');return;}
+  }
   snake.tongueT+=dt*7;
   snake.boost=Math.max(0,snake.boost-dt);
   snake.stun=Math.max(0,snake.stun-dt);
@@ -1539,8 +1615,16 @@ function update(dt){
   let spdK=1;
   if(keys['ArrowUp']||keys['KeyW']||joyY<-.35)spdK=1.28;
   if(keys['ArrowDown']||keys['KeyS']||joyY>.35)spdK=.55;
+  dashCd=Math.max(0,dashCd-dt);dashT=Math.max(0,dashT-dt);
+  if((keys['Space']||dashWanted)&&dashCd<=0&&snake.stun<=0){
+    dashCd=Math.max(2,5-up.dash*.8);dashT=.55;
+    sfx.dash();snakeSay('Вжух!');
+  }
+  dashWanted=false;
+  const db=document.getElementById('dashBtn');
+  if(db&&!db.classList.contains('hidden'))db.style.opacity=dashCd>0?.35:.9;
   if(snake.stun<=0){
-    const sp=snake.speed*(1+.08*up.speed)*spdK*(snake.boost>0?1.6:1);
+    const sp=snake.speed*(1+.08*up.speed)*spdK*(snake.boost>0?1.6:1)*(dashT>0?2.1:1);
     snake.x+=Math.cos(snake.angle)*sp*dt;
     snake.y+=Math.sin(snake.angle)*sp*dt;
   }
@@ -1556,6 +1640,20 @@ function update(dt){
     if(shield.t<=0){removeAndDispose(worldGroup,shieldMesh);shieldMesh=null;shield=null;}
   }
   recordPath();computeSegs();
+  if(C.mission==='deliver'&&deliverZone&&snake.people.length>0&&dist2(snake.x,snake.y,deliverZone.x,deliverZone.y)<deliverZone.r*deliverZone.r){
+    const cnt=snake.people.length;
+    deliverPeople();
+    delivered+=cnt;score+=15*cnt;
+    sfx.hero();
+    say(snake.x,snake.y,70,'📦 Принято: '+cnt+'! (+'+(15*cnt)+')','#7dffa0');
+    updateHUD();
+    if(delivered>=C.target)levelComplete();
+  }
+  if(!C.tutorial&&level>=3){
+    eventT-=dt;
+    if(eventT<=0){eventT=rand(22,32);randomEvent();}
+  }
+  panicT=Math.max(0,panicT-dt);goldRushT=Math.max(0,goldRushT-dt);
   if(snake.grace>0)snake.grace-=dt;
   else for(let i=3;i<snake.segPos.length;i++){
     const s=snake.segPos[i];
@@ -1597,7 +1695,11 @@ function updateHUD(){
   document.getElementById('score').textContent=score;
   document.getElementById('lenPeople').textContent=snake?snake.people.length:0;
   document.getElementById('level').textContent=level;
-  document.getElementById('goal').textContent=Math.min(caughtThisLevel,C.target)+'/'+C.target;
+  const goalEl=document.getElementById('goal');
+  if(C.mission==='deliver')goalEl.textContent='📦 '+delivered+'/'+C.target;
+  else if(C.mission==='gold')goalEl.textContent='👑 '+goldCaught+'/'+C.target;
+  else if(C.mission==='timed')goalEl.textContent=Math.min(caughtThisLevel,C.target)+'/'+C.target+' · '+Math.max(0,Math.ceil(levelTime))+'с';
+  else goalEl.textContent=Math.min(caughtThisLevel,C.target)+'/'+C.target;
   document.getElementById('combo').textContent=combo>1?'×'+combo:'—';
   document.getElementById('armor').textContent=up.armor;
 }
@@ -1618,11 +1720,21 @@ function levelComplete(){
     openShop();
   },2600);
 }
-function gameOver(){
+function gameOver(title){
   running=false;stopMusic();sfx.over();boomAt(snake.x,snake.y,20,true);
+  document.getElementById('overTitle').textContent=title||'ИГРА ОКОНЧЕНА';
   document.getElementById('overScore').textContent='💰 '+score;
-  document.getElementById('overInfo').textContent='Уровень '+level+' · В хвосте было '+snake.people.length+' чел. · Время '+document.getElementById('timer').textContent;
+  let best=0;try{best=+localStorage.getItem('zmey_best')||0;}catch(e){}
+  let rec='';
+  if(score>best){try{localStorage.setItem('zmey_best',String(score));}catch(e){}rec=' · 🏆 НОВЫЙ РЕКОРД!';}
+  document.getElementById('overInfo').textContent='Уровень '+level+' · В хвосте было '+snake.people.length+' чел. · Время '+document.getElementById('timer').textContent+rec;
+  updateBest();
   document.getElementById('overOverlay').classList.remove('hidden');
+}
+function updateBest(){
+  let best=0;try{best=+localStorage.getItem('zmey_best')||0;}catch(e){}
+  const el=document.getElementById('bestLine');
+  if(el)el.textContent=best>0?'🏆 Рекорд: '+best+' 💰':'';
 }
 
 /* ============ СИНХРОНИЗАЦИЯ СЦЕНЫ ============ */
@@ -1713,6 +1825,10 @@ function drawMinimap(){
     mmCtx.beginPath();mmCtx.arc(n.x*kx,n.y*ky,n.gold?3.4:2.4,0,7);mmCtx.fill();
   }
   for(const it of items)if(it.kind==='bomb'){mmCtx.fillStyle='#ff5a4a';mmCtx.beginPath();mmCtx.arc(it.x*kx,it.y*ky,2,0,7);mmCtx.fill();}
+  if(deliverZone){
+    mmCtx.strokeStyle='#57ff7a';mmCtx.lineWidth=2;
+    mmCtx.beginPath();mmCtx.arc(deliverZone.x*kx,deliverZone.y*ky,Math.max(5,deliverZone.r*kx),0,7);mmCtx.stroke();
+  }
   if(hero){mmCtx.fillStyle='#57c7ff';mmCtx.beginPath();mmCtx.arc(hero.x*kx,hero.y*ky,3.2,0,7);mmCtx.fill();}
 }
 
@@ -1821,8 +1937,12 @@ function showBanner(){
   const b=document.getElementById('lvlBanner');
   const n=C.target;
   const word=(n%10===1&&n%100!==11)?'жителя':'жителей';
+  let goalTxt='🎯 Мобилизуй '+n+' '+word+'!';
+  if(C.mission==='timed')goalTxt='⏱ Мобилизуй '+n+' '+word+' за '+Math.round(C.time)+' секунд!';
+  if(C.mission==='deliver')goalTxt='📦 Довези и сдай '+n+' '+word+' в пункт сбора!';
+  if(C.mission==='gold')goalTxt='👑 Поймай '+n+' золотых '+word+'!';
   b.innerHTML='<div class="bTitle">'+(C.tutorial?'🎓 ИНСТРУКТАЖ':(C.boss?'⚔️ БОСС-УРОВЕНЬ '+level:'УРОВЕНЬ '+level))+'</div>'+
-    '<div class="bGoal">🎯 Мобилизуй '+n+' '+word+'!</div>';
+    '<div class="bGoal">'+goalTxt+'</div>';
   b.classList.remove('hidden');b.style.opacity=1;
   clearTimeout(bannerTO);
   bannerTO=setTimeout(()=>{b.style.opacity=0;bannerTO=setTimeout(()=>b.classList.add('hidden'),700);},3000);
@@ -1833,6 +1953,9 @@ function resetRound(){
   if(shieldMesh){removeAndDispose(worldGroup,shieldMesh);shieldMesh=null;shield=null;}
   for(const p of parts)removeAndDispose(worldGroup,p.mesh);
   parts=[];camShake=0;heroTimer=C.heroDelay;
+  delivered=0;goldCaught=0;levelTime=C.time||0;
+  panicT=0;goldRushT=0;eventT=rand(18,26);dashCd=0;dashT=0;dashWanted=false;
+  deliverZone=null;deliverZoneMesh=null;
   planeTimer=C.tutorial?1e9:6;itemTimer=C.tutorial?1e9:3;droneTimer=C.tutorial?1e9:6;
   buildWorld();
   const hint=document.getElementById('hint');
@@ -1862,7 +1985,7 @@ function renderLevelSelect(){
     c.appendChild(b);
   }
 }
-renderLevelSelect();
+renderLevelSelect();updateBest();
 function unlockLevel(l){
   if(l>maxUnlocked){
     maxUnlocked=l;selectedLevel=l;renderLevelSelect();
@@ -1871,7 +1994,7 @@ function unlockLevel(l){
 }
 function startGame(){
   level=selectedLevel;C=cfg();caughtThisLevel=0;score=0;scoreAtLevelStart=0;elapsed=0;interLevel=false;
-  up={speed:0,turn:0,magnet:0,armor:0};combo=0;comboT=0;
+  up={speed:0,turn:0,magnet:0,armor:0,dash:0};combo=0;comboT=0;
   document.getElementById('shopOverlay').classList.add('hidden');
   document.getElementById('levelOverlay').classList.add('hidden');
   resetRound();
@@ -1881,7 +2004,7 @@ function startGame(){
   document.getElementById('pauseLbl').classList.add('hidden');
   clearTimeout(lvlTO);clearJingles();
   unlockAudio();try{const a=audio();a.resume&&a.resume();}catch(e){}
-  if(isTouch)document.getElementById('menuOpenBtn').classList.remove('hidden');
+  if(isTouch){document.getElementById('menuOpenBtn').classList.remove('hidden');document.getElementById('dashBtn').classList.remove('hidden');}
   goFullscreen();startMusic();
   snakeSay('Ням-ням!');
 }
@@ -1907,6 +2030,7 @@ document.getElementById('toLevelsBtn').onclick=()=>{
   selectedLevel=Math.min(level,maxUnlocked);
   renderLevelSelect();
 };
+document.getElementById('dashBtn').addEventListener('pointerdown',e=>{dashWanted=true;e.preventDefault();e.stopPropagation();},{passive:false});
 document.getElementById('musicBtn').onclick=()=>setMuted(!musicMuted);
 document.getElementById('musicBtnMain').onclick=()=>setMuted(!musicMuted);
 updateMusicButtons();
