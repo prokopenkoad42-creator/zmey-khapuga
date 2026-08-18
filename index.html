@@ -78,6 +78,8 @@
   .shopItem button{font-size:14px;padding:7px 16px;margin-top:7px;border:none;border-radius:9px;background:#7cc24e;color:#15260d;font-weight:bold;cursor:pointer;box-shadow:0 3px 0 #4c7d2c}
   .shopItem button:disabled{background:#4a5a42;color:#8a9a82;box-shadow:none;cursor:default}
   #menuOpenBtn{position:fixed;top:64px;left:10px;z-index:7;width:46px;height:46px;border-radius:12px;background:rgba(20,30,20,.72);color:#fff;border:2px solid rgba(255,255,255,.3);font-size:22px;cursor:pointer}
+  #playerName{font-size:16px;padding:9px 14px;border-radius:10px;border:2px solid #567d3e;background:#16240f;color:#eaf5e2;text-align:center;width:230px;outline:none}
+  #playerName:focus{border-color:#a6e26b}
   #dashBtn{position:fixed;right:22px;bottom:30px;z-index:6;width:76px;height:76px;border-radius:50%;background:rgba(255,213,77,.75);color:#5a4500;border:3px solid rgba(255,255,255,.5);font-size:32px;touch-action:none;box-shadow:0 4px 12px rgba(0,0,0,.35)}
   #gameMenu .card button{display:block;width:260px;margin:6px auto}
   .btnGray{background:#8a8f7a!important;box-shadow:0 5px 0 #5c6152!important}
@@ -97,7 +99,7 @@
 
 <div id="hud">
   <div class="panel" id="stats">
-    <div><span class="lbl">ИГРОК</span>🐍 Хапуга</div>
+    <div><span class="lbl">ИГРОК</span>🐍 <span id="hudName">Хапуга</span></div>
     <div><span class="lbl">УРОВЕНЬ</span>🏁 <span id="level">1</span></div>
     <div><span class="lbl">ЦЕЛЬ</span>🎯 <span id="goal">0/7</span></div>
     <div><span class="lbl">ОЧКИ</span>💰 <span id="score">0</span></div>
@@ -131,8 +133,10 @@
       <p>🎓 <b>Уровень 1 — инструктаж:</b> маленькая комната и один житель. Поймай его!</p>
     </div>
     </div>
+    <div style="margin-top:10px"><input id="playerName" maxlength="14" placeholder="Имя для рейтинга" autocomplete="off"></div>
     <div id="levelSelect"></div>
     <button id="musicBtnMain" class="lvlBtn" style="margin-top:8px">🎵 Музыка: ВКЛ</button>
+    <button id="lbBtn" class="lvlBtn" style="margin-top:8px">🌍 Топ игроков</button>
     <div id="bestLine" style="font-size:14px;color:#ffd54d;margin-top:8px"></div>
     <div id="iosTip" class="hidden" style="font-size:12px;color:#ffd54d;margin-top:8px">📱 Полный экран на iPhone: Поделиться → «На экран “Домой”» — и запускай игру с иконки</div>
     <button id="startBtn">ИГРАТЬ</button>
@@ -144,6 +148,14 @@
     <h1 id="lvlTitle">УРОВЕНЬ 1 ПРОЙДЕН!</h1>
     <div class="big">🎉</div>
     <h2 id="lvlInfo"></h2>
+  </div>
+</div>
+
+<div class="overlay hidden" id="lbOverlay">
+  <div class="card">
+    <h1>🌍 ТОП ИГРОКОВ</h1>
+    <div id="lbList" style="text-align:left;min-height:120px;font-size:16px;line-height:1.7"></div>
+    <button id="lbClose">ЗАКРЫТЬ</button>
   </div>
 </div>
 
@@ -170,6 +182,7 @@
     <h1 id="overTitle">ИГРА ОКОНЧЕНА</h1>
     <div class="big" id="overScore">0</div>
     <h2 id="overInfo"></h2>
+    <div id="lbLine" style="font-size:15px;color:#a8e6ff;margin:4px 0 8px"></div>
     <div><button id="continueBtn">ПРОДОЛЖИТЬ</button><button id="menuBtn">В МЕНЮ</button></div>
   </div>
 </div>
@@ -228,6 +241,7 @@ const sfx={
   free(){tone(700,.1,'square',.12,1200);},
   zap(){tone(1200,.2,'sawtooth',.15,100);},
   whistle(){tone(1500,.7,'sine',.09,250);},
+  oink(){tone(420,.09,'sawtooth',.22,240);setTimeout(()=>tone(300,.13,'sawtooth',.22,150),90);},
   win(){
     // оригинальный 8-битный фанфар победы
     const L=[[523,0,.13],[659,.13,.13],[784,.26,.13],[1047,.39,.26],
@@ -746,6 +760,26 @@ function makeMonument(){
   const sh=rectShadow(102,80); sh.position.set(8,.7,7); g.add(sh);
   return g;
 }
+function makePig(){
+  const g=new THREE.Group();const u=g.userData;
+  const pink=0xf2a3c0,dark=0xd97fa3;
+  const body=new THREE.Mesh(new THREE.BoxGeometry(20,15,28),mat(pink));body.position.y=15;g.add(body);
+  const head=new THREE.Mesh(new THREE.BoxGeometry(15,13,10),mat(pink));head.position.set(0,17,18);g.add(head);
+  const snout=new THREE.Mesh(new THREE.BoxGeometry(7,5,3),mat(dark));snout.position.set(0,15,24);g.add(snout);
+  for(const nx of[-1.6,1.6]){const nn=new THREE.Mesh(new THREE.BoxGeometry(1.4,1.6,1),mat(0x8a4a63));nn.position.set(nx,15,25.7);g.add(nn);}
+  for(const ex of[-4,4]){const ee=new THREE.Mesh(new THREE.BoxGeometry(2.6,2.6,1),mat(0x111111));ee.position.set(ex,20,23.2);g.add(ee);}
+  for(const ax of[-5,5]){const ear=new THREE.Mesh(new THREE.BoxGeometry(4,5,2),mat(dark));ear.position.set(ax,25,16);ear.rotation.x=-.3;g.add(ear);}
+  const legGeo=new THREE.BoxGeometry(5,9,5);legGeo.translate(0,-4.5,0);
+  u.legL=new THREE.Mesh(legGeo,mat(0xe08bb0));u.legL.position.set(-6,9,10);
+  u.legR=new THREE.Mesh(legGeo.clone(),mat(0xe08bb0));u.legR.position.set(6,9,10);
+  u.armL=new THREE.Mesh(legGeo.clone(),mat(0xe08bb0));u.armL.position.set(-6,9,-9);
+  u.armR=new THREE.Mesh(legGeo.clone(),mat(0xe08bb0));u.armR.position.set(6,9,-9);
+  g.add(u.legL,u.legR,u.armL,u.armR);
+  const t1=new THREE.Mesh(new THREE.BoxGeometry(2,2,4),mat(dark));t1.position.set(0,20,-15);g.add(t1);
+  const t2=new THREE.Mesh(new THREE.BoxGeometry(2,4,2),mat(dark));t2.position.set(0,22,-16.5);g.add(t2);
+  g.add(blob(13,0,1,0));
+  return g;
+}
 function makeDeliverZone(x,y){
   const g=new THREE.Group();
   const disk=new THREE.Mesh(new THREE.CylinderGeometry(140,140,2,28),new THREE.MeshLambertMaterial({color:0x57ff7a,transparent:true,opacity:.22,depthWrite:false}));
@@ -782,6 +816,11 @@ function makeItemMesh(kind){
       const lace=new THREE.Mesh(new THREE.BoxGeometry(10,1.5,11.2),mat(0xd0d0d0)); lace.position.set(ox+4,12,oz);
       g.add(sole,toe,heel,stripe,lace);
     }
+  }else if(kind==='pig'){
+    const fig=makePig();fig.scale.setScalar(.55);g.add(fig);
+    const star=new THREE.Mesh(new THREE.BoxGeometry(4,4,1.2),new THREE.MeshBasicMaterial({color:0xffe100}));
+    star.rotation.z=Math.PI/4;star.position.y=28;g.add(star);
+    g.userData.spark=star;
   }else if(kind==='coffee'){
     const saucer=new THREE.Mesh(new THREE.CylinderGeometry(11,9,2.5,12),mat(0xf4f0e6)); saucer.position.y=1.5; g.add(saucer);
     const cup=new THREE.Mesh(new THREE.CylinderGeometry(7,5.5,10,12),mat(0xffffff)); cup.position.y=8; g.add(cup);
@@ -830,6 +869,9 @@ let up={speed:0,turn:0,magnet:0,armor:0,dash:0};
 let combo=0,comboT=0;
 let delivered=0,goldCaught=0,levelTime=0,deliverZone=null,deliverZoneMesh=null;
 let dashCd=0,dashT=0,dashWanted=false,panicT=0,goldRushT=0,eventT=25;
+let pigT=0,pigItemT=25;
+let playerName='';
+try{playerName=(localStorage.getItem('zmey_name')||'').slice(0,14);}catch(e){}
 const SHOP=[
   {k:'speed',icon:'🚀',name:'Скорость',desc:'+8% к скорости змея',max:5,cost:c=>40+25*c},
   {k:'turn',icon:'🌀',name:'Манёвр',desc:'+10% к скорости поворота',max:5,cost:c=>35+20*c},
@@ -1157,6 +1199,7 @@ function spawnNPC(type,pos){
     seed:sd,r:type==='son'?11:14,heading:0,
     mesh:makePerson(type,sd,false,gold)};
   n.gold=gold;if(gold)n.speed*=1.3;
+  if(pigT>0)pigify(n,true);
   n.mesh.position.set(n.x,0,n.y);
   worldGroup.add(n.mesh);
   npcs.push(n);return n;
@@ -1174,7 +1217,7 @@ function npcUpdate(n,dt){
   }else if(!trap&&dToSnake<300){
     vx=(n.x-snake.x)/dToSnake;vy=(n.y-snake.y)/dToSnake;
     n.angle=Math.atan2(vy,vx);
-    if(Math.random()<dt*.4)say(n.x,n.y,58,pick(['Беги!','Не поймаешь!','Ай-ай!','Караул!']),'#ffe9a8');
+    if(Math.random()<dt*.4)say(n.x,n.y,58,n.pig?pick(['Хрю!','Хрю-хрю!']):pick(['Беги!','Не поймаешь!','Ай-ай!','Караул!']),n.pig?'#ffc2d8':'#ffe9a8');
   }else{
     n.wanderT-=dt;
     if(n.wanderT<=0){n.wanderT=rand(1,3);n.angle+=rand(-1.4,1.4);}
@@ -1183,7 +1226,8 @@ function npcUpdate(n,dt){
   }
   const fleeing=!trap&&dToSnake<300;
   let sp=n.stunT>0?0:n.speed*(n.boostT>0?1.9:1)*(fleeing?1.45:1)*(prot?1.3:1);
-  if(!trap&&panicT>0){sp*=1.3;if(Math.random()<dt*3)n.angle+=rand(-2,2);}
+  if(n.pig)sp=Math.min(sp,46);
+  if(!trap&&panicT>0&&!n.pig){sp*=1.3;if(Math.random()<dt*3)n.angle+=rand(-2,2);}
   if(!trap)sp=Math.min(sp,n.boostT>0?330:238);
   n.x+=vx*sp*dt;n.y+=vy*sp*dt;
   keepInWorld(n,n.r);
@@ -1233,6 +1277,11 @@ function spawnItem(kind){
 }
 function itemsUpdate(dt){
   itemTimer-=dt;
+  pigItemT-=dt;
+  if(pigItemT<=0&&!C.tutorial){
+    pigItemT=rand(35,55);
+    if(!items.some(i=>i.kind==='pig'&&!i.dead))spawnItem('pig');
+  }
   if(itemTimer<=0){
     itemTimer=rand(4,8);
     const counts={bomb:0,energy:0,sneakers:0,coffee:0};
@@ -1260,6 +1309,9 @@ function itemsUpdate(dt){
       if(it.kind==='bomb'){
         it.dead=true;removeAndDispose(worldGroup,it.mesh);
         explodeAt(it.x,it.y,true);
+      }else if(it.kind==='pig'){
+        it.dead=true;removeAndDispose(worldGroup,it.mesh);
+        activatePigs();
       }else if(it.kind==='energy'){
         it.dead=true;removeAndDispose(worldGroup,it.mesh);
         snake.boost=4;sfx.dash();
@@ -1309,6 +1361,24 @@ function airBombsUpdate(dt){
     }
   }
   airBombs=airBombs.filter(b=>!b.dead);
+}
+
+/* ============ ХРЮ-БУСТЕР ============ */
+function pigify(n,on){
+  if(n.type==='deputy'||n.type==='son')return;
+  if(!!n.pig===on)return;
+  removeAndDispose(worldGroup,n.mesh);
+  n.pig=on;
+  n.mesh=on?makePig():makePerson(n.type,n.seed,false,n.gold);
+  n.mesh.position.set(n.x,0,n.y);
+  worldGroup.add(n.mesh);
+}
+function activatePigs(){
+  pigT=30;
+  eventBanner('🐷 ХРЮ-БУСТЕР! Жители — свинки на 30 секунд');
+  sfx.oink();
+  snakeSay('Ням-ням!');
+  for(const n of npcs)pigify(n,true);
 }
 
 /* ============ СЛУЧАЙНЫЕ СОБЫТИЯ ============ */
@@ -1654,6 +1724,10 @@ function update(dt){
     if(eventT<=0){eventT=rand(22,32);randomEvent();}
   }
   panicT=Math.max(0,panicT-dt);goldRushT=Math.max(0,goldRushT-dt);
+  if(pigT>0){
+    pigT-=dt;
+    if(pigT<=0){pigT=0;for(const n of npcs)pigify(n,false);}
+  }
   if(snake.grace>0)snake.grace-=dt;
   else for(let i=3;i<snake.segPos.length;i++){
     const s=snake.segPos[i];
@@ -1730,6 +1804,7 @@ function gameOver(title){
   document.getElementById('overInfo').textContent='Уровень '+level+' · В хвосте было '+snake.people.length+' чел. · Время '+document.getElementById('timer').textContent+rec;
   updateBest();
   document.getElementById('overOverlay').classList.remove('hidden');
+  lbSubmit();
 }
 function updateBest(){
   let best=0;try{best=+localStorage.getItem('zmey_best')||0;}catch(e){}
@@ -1932,6 +2007,46 @@ document.getElementById('shopNext').onclick=()=>{
   resetRound();
   interLevel=false;
 };
+/* ============ ОБЩИЙ РЕЙТИНГ (kvdb.io) ============ */
+const LB_URL='https://kvdb.io/769kamAFaVYB4h9KLDaf2m/top';
+function escapeHtml(t){return String(t).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));}
+async function lbFetch(){
+  const r=await fetch(LB_URL+'?t='+Date.now());
+  if(r.status===404)return[];
+  if(!r.ok)throw new Error('lb');
+  try{const j=JSON.parse(await r.text());return Array.isArray(j)?j:[];}catch(e){return[];}
+}
+async function lbSubmit(){
+  const line=document.getElementById('lbLine');
+  if(!playerName||score<=0){line.textContent=playerName?'':'🌍 Введи имя в меню, чтобы попасть в общий топ';return;}
+  line.textContent='🌍 Отправка результата…';
+  try{
+    let top=await lbFetch();
+    top=top.filter(e=>e&&e.n&&typeof e.s==='number');
+    const mine=top.find(e=>e.n===playerName);
+    if(mine){if(score>mine.s){mine.s=score;mine.l=level;}}
+    else top.push({n:playerName,s:score,l:level});
+    top.sort((a,b)=>b.s-a.s);top=top.slice(0,15);
+    const pr=await fetch(LB_URL,{method:'PUT',body:JSON.stringify(top)});
+    if(!pr.ok)throw new Error('put');
+    const place=top.findIndex(e=>e.n===playerName)+1;
+    line.textContent=place>0?'🌍 Место в общем топе: #'+place:'🌍 Результат отправлен';
+  }catch(e){line.textContent='🌍 Общий рейтинг недоступен';}
+}
+async function showLb(){
+  const el=document.getElementById('lbList');
+  el.innerHTML='<div style="text-align:center;opacity:.7">Загрузка…</div>';
+  document.getElementById('lbOverlay').classList.remove('hidden');
+  try{
+    const top=await lbFetch();
+    if(!top.length){el.innerHTML='<div style="text-align:center;opacity:.7">Пока пусто — стань первым!</div>';return;}
+    el.innerHTML=top.map((e,i)=>{
+      const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'&nbsp;'+(i+1)+'.';
+      const me=e.n===playerName?' style="color:#ffd54d"':'';
+      return '<div'+me+'>'+medal+' <b>'+escapeHtml(e.n)+'</b> — '+(+e.s||0)+' 💰 <span style="opacity:.6">(ур. '+(+e.l||1)+')</span></div>';
+    }).join('');
+  }catch(e){el.innerHTML='<div style="text-align:center;opacity:.7">Рейтинг недоступен. Попробуй позже.</div>';}
+}
 let bannerTO=null;
 function showBanner(){
   const b=document.getElementById('lvlBanner');
@@ -1955,7 +2070,7 @@ function resetRound(){
   parts=[];camShake=0;heroTimer=C.heroDelay;
   delivered=0;goldCaught=0;levelTime=C.time||0;
   panicT=0;goldRushT=0;eventT=rand(18,26);dashCd=0;dashT=0;dashWanted=false;
-  deliverZone=null;deliverZoneMesh=null;
+  deliverZone=null;deliverZoneMesh=null;pigT=0;pigItemT=rand(20,35);
   planeTimer=C.tutorial?1e9:6;itemTimer=C.tutorial?1e9:3;droneTimer=C.tutorial?1e9:6;
   buildWorld();
   const hint=document.getElementById('hint');
@@ -1986,6 +2101,18 @@ function renderLevelSelect(){
   }
 }
 renderLevelSelect();updateBest();
+(function(){
+  const inp=document.getElementById('playerName');
+  inp.value=playerName;
+  inp.addEventListener('input',()=>{
+    playerName=inp.value.trim().slice(0,14);
+    try{localStorage.setItem('zmey_name',playerName);}catch(e){}
+    document.getElementById('hudName').textContent=playerName||'Хапуга';
+  });
+  document.getElementById('hudName').textContent=playerName||'Хапуга';
+  document.getElementById('lbBtn').onclick=showLb;
+  document.getElementById('lbClose').onclick=()=>document.getElementById('lbOverlay').classList.add('hidden');
+})();
 function unlockLevel(l){
   if(l>maxUnlocked){
     maxUnlocked=l;selectedLevel=l;renderLevelSelect();
