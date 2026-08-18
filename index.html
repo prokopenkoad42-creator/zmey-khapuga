@@ -6,6 +6,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>Змей-Хапуга 3D</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐍</text></svg>">
 <style>
@@ -71,6 +73,13 @@
   .lvlBtn{display:inline-block;margin:3px;padding:9px 16px;border-radius:9px;background:#2c4a1e;border:2px solid #567d3e;color:#cfe8b8;font-size:16px;font-weight:bold;cursor:pointer}
   .lvlBtn.sel{background:#7cc24e;color:#15260d;border-color:#fff;box-shadow:0 0 14px #a6e26b;transform:scale(1.1)}
   #menuBtn{background:#8a8f7a;box-shadow:0 5px 0 #5c6152;margin-left:10px}
+  .shopGrid{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+  .shopItem{background:rgba(0,0,0,.25);border:2px solid #567d3e;border-radius:12px;padding:10px 12px;width:170px;text-align:center;font-size:14px}
+  .shopItem button{font-size:14px;padding:7px 16px;margin-top:7px;border:none;border-radius:9px;background:#7cc24e;color:#15260d;font-weight:bold;cursor:pointer;box-shadow:0 3px 0 #4c7d2c}
+  .shopItem button:disabled{background:#4a5a42;color:#8a9a82;box-shadow:none;cursor:default}
+  #menuOpenBtn{position:fixed;top:64px;left:10px;z-index:7;width:46px;height:46px;border-radius:12px;background:rgba(20,30,20,.72);color:#fff;border:2px solid rgba(255,255,255,.3);font-size:22px;cursor:pointer}
+  #gameMenu .card button{display:block;width:260px;margin:6px auto}
+  .btnGray{background:#8a8f7a!important;box-shadow:0 5px 0 #5c6152!important}
   #menuBtn:active{box-shadow:0 2px 0 #5c6152}
 </style>
 </head>
@@ -80,6 +89,7 @@
 <div id="bubbles"></div>
 
 <div id="hint" class="panel hidden"></div>
+<button id="menuOpenBtn" class="hidden">☰</button>
 <div id="lvlBanner" class="hidden"></div>
 <div id="pauseLbl" class="panel hidden" style="position:fixed;top:45%;left:50%;transform:translate(-50%,-50%);font-size:30px;font-weight:bold;color:#fff;z-index:5">⏸ ПАУЗА</div>
 
@@ -89,6 +99,8 @@
     <div><span class="lbl">УРОВЕНЬ</span>🏁 <span id="level">1</span></div>
     <div><span class="lbl">ЦЕЛЬ</span>🎯 <span id="goal">0/7</span></div>
     <div><span class="lbl">ОЧКИ</span>💰 <span id="score">0</span></div>
+    <div><span class="lbl">КОМБО</span>🔥 <span id="combo">—</span></div>
+    <div><span class="lbl">БРОНЯ</span>🛡 <span id="armor">0</span></div>
     <div><span class="lbl">В ХВОСТЕ</span>👥 <span id="lenPeople">0</span></div>
   </div>
   <div class="panel"><div id="timer">00:00</div></div>
@@ -117,6 +129,8 @@
     </div>
     </div>
     <div id="levelSelect"></div>
+    <button id="musicBtnMain" class="lvlBtn" style="margin-top:8px">🎵 Музыка: ВКЛ</button>
+    <div id="iosTip" class="hidden" style="font-size:12px;color:#ffd54d;margin-top:8px">📱 Полный экран на iPhone: Поделиться → «На экран “Домой”» — и запускай игру с иконки</div>
     <button id="startBtn">ИГРАТЬ</button>
   </div>
 </div>
@@ -126,6 +140,24 @@
     <h1 id="lvlTitle">УРОВЕНЬ 1 ПРОЙДЕН!</h1>
     <div class="big">🎉</div>
     <h2 id="lvlInfo"></h2>
+  </div>
+</div>
+
+<div class="overlay hidden" id="gameMenu">
+  <div class="card">
+    <h1>⏸ МЕНЮ</h1>
+    <button id="resumeBtn">▶ ПРОДОЛЖИТЬ</button>
+    <button id="toLevelsBtn" class="btnGray">🎚 ВЫБОР УРОВНЯ</button>
+    <button id="musicBtn" class="btnGray">🎵 МУЗЫКА: ВКЛ</button>
+  </div>
+</div>
+
+<div class="overlay hidden" id="shopOverlay">
+  <div class="card">
+    <h1>🛒 ЛАВКА ХАПУГИ</h1>
+    <h2>прокачайся перед уровнем · очков: <span id="shopMoney">0</span> 💰</h2>
+    <div class="shopGrid" id="shopGrid"></div>
+    <button id="shopNext">В БОЙ →</button>
   </div>
 </div>
 
@@ -455,7 +487,7 @@ for(let i=0;i<10;i++){
 }
 
 /* ============ МОДЕЛИ ============ */
-function makePerson(type,seed,mob){
+function makePerson(type,seed,mob,gold){
   const g=new THREE.Group(); const u=g.userData;
   const skin=new THREE.Color(SKIN[seed%SKIN.length]);
   let shirt=SHIRT[seed%SHIRT.length], pants=0x3a4c63, hairC=new THREE.Color(HAIRC[seed%HAIRC.length]);
@@ -468,6 +500,7 @@ function makePerson(type,seed,mob){
   if(type==='son'){shirt=0xd4b34a;pants=0x7a4a2e;}
   if(type==='hero'){shirt=0x2e6fd8;pants=0x2e6fd8;shoeC=0xc0392b;}
   if(mob){shirt=0x5f7a3a;pants=0x4c6330;shoeC=0x39482a;}
+  if(gold&&!mob){shirt=0xffd54d;pants=0xd4a017;shoeC=0xb8860b;}
   // ноги + ботинки
   const legGeo=new THREE.BoxGeometry(6,14,7); legGeo.translate(0,-7,0);
   u.legL=new THREE.Mesh(legGeo,mat(pants)); u.legL.position.set(-3.6,14,0);
@@ -526,6 +559,8 @@ function makePerson(type,seed,mob){
     const belt=new THREE.Mesh(new THREE.BoxGeometry(16.5,4,10.5),mat(0xffd54d)); belt.position.y=16.5; g.add(belt);
     const emblem=new THREE.Mesh(new THREE.BoxGeometry(7,7,1.5),mat(0xffd54d)); emblem.position.set(0,28,5.5); emblem.rotation.z=Math.PI/4; g.add(emblem);
   }
+  if(gold&&!mob){const crown=new THREE.Mesh(new THREE.BoxGeometry(13,5,13),mat(0xffe100));crown.position.y=54.5;g.add(crown);
+    for(const cx of[-4,0,4]){const spike=new THREE.Mesh(new THREE.BoxGeometry(2.5,4,2.5),mat(0xffe100));spike.position.set(cx,58,0);g.add(spike);}}
   if(type==='son') g.scale.setScalar(.72);
   g.add(blob(12,0,1,1));
   return g;
@@ -775,15 +810,25 @@ function makeDroneMesh(){
 
 /* ============ УРОВНИ ============ */
 let level=1, caughtThisLevel=0;
+let up={speed:0,turn:0,magnet:0,armor:0};
+let combo=0,comboT=0;
+const SHOP=[
+  {k:'speed',icon:'🚀',name:'Скорость',desc:'+8% к скорости змея',max:5,cost:c=>40+25*c},
+  {k:'turn',icon:'🌀',name:'Манёвр',desc:'+10% к скорости поворота',max:5,cost:c=>35+20*c},
+  {k:'magnet',icon:'🧲',name:'Магнит',desc:'+15% к радиусу поимки',max:3,cost:c=>50+30*c},
+  {k:'armor',icon:'🛡',name:'Броня',desc:'поглощает одну потерю хвоста',max:3,cost:c=>45}
+];
 function cfg(){
-  if(level===1)return{target:1,npcK:.9,traps:0,bombs:0,heroDelay:1e9,doorMin:1e9,doorMax:1e9,tutorial:true};
+  if(level===1)return{target:1,npcK:.9,traps:0,bombs:0,heroDelay:1e9,doorMin:1e9,doorMax:1e9,tutorial:true,boss:false};
   const l=level-1;
+  const boss=level%5===0;
   return {
+    boss,
     target:4+l*3,
     npcK:Math.min(1.45,1+(l-1)*.07),
     traps:Math.min(5,1+l),
     bombs:Math.min(6,2+l),
-    heroDelay:Math.max(14,42-l*4),
+    heroDelay:boss?1:Math.max(14,42-l*4),
     doorMin:Math.max(2.2,4-l*.3),
     doorMax:Math.max(4.5,9-l*.5),
     tutorial:false
@@ -1016,6 +1061,12 @@ function addPerson(type,seed){
   snake.people.push({type,seed,phase:rand(0,10),mesh});
 }
 function losePeople(n){
+  if(n>0&&up.armor>0){
+    up.armor--;
+    say(snake.x,snake.y,60,'🛡 Броня!','#a8e6ff');
+    sfx.shield();updateHUD();
+    return;
+  }
   let freed=0;
   while(n-->0&&snake.people.length){
     const p=snake.people.pop();
@@ -1061,11 +1112,13 @@ function spawnNPC(type,pos){
   const base={man:82,woman:78,runner:135,pensioner:42,deputy:34,son:46};
   const civ=!(type==='deputy'||type==='son');
   const sd=randi(0,3);
+  const gold=civ&&Math.random()<.08;
   const n={type,x:pos.x,y:pos.y,angle:rand(0,Math.PI*2),
     speed:base[type]*rand(.9,1.1)*(civ?C.npcK:1),
     boostT:0,invuln:0,flash:0,stunT:0,phase:rand(0,10),wanderT:0,eatT:rand(0,2),
     seed:sd,r:type==='son'?11:14,heading:0,
-    mesh:makePerson(type,sd)};
+    mesh:makePerson(type,sd,false,gold)};
+  n.gold=gold;if(gold)n.speed*=1.3;
   n.mesh.position.set(n.x,0,n.y);
   worldGroup.add(n.mesh);
   npcs.push(n);return n;
@@ -1104,7 +1157,8 @@ function npcUpdate(n,dt){
       say(n.x,n.y,58,it.kind==='coffee'?'☕ Вжух!':'👟 Вжух!','#a8e6ff');
     }
   }
-  if(snake.stun<=0&&n.invuln<=0&&dist2(n.x,n.y,snake.x,snake.y)<(HEAD_R+n.r+6)*(HEAD_R+n.r+6)){
+  const catchR=(HEAD_R+n.r+6)*(1+.15*up.magnet);
+  if(snake.stun<=0&&n.invuln<=0&&dist2(n.x,n.y,snake.x,snake.y)<catchR*catchR){
     if(prot&&!trap)return;
     if(trap){
       const loss=n.type==='deputy'?2:1;
@@ -1116,7 +1170,10 @@ function npcUpdate(n,dt){
     }else{
       killNPC(n);
       addPerson(n.type,n.seed);
-      score+=10;caughtThisLevel++;
+      combo=Math.min(5,combo+1);comboT=3;
+      const gained=(n.gold?50:10)*combo;
+      score+=gained;caughtThisLevel++;
+      say(n.x,n.y,72,'+'+gained+(combo>1?' 🔥×'+combo:''),n.gold?'#ffe100':'#c9f7a5');
       sfx.pop();sfx.slurp();
       snakeSay(pick(['Ням-ням!','Дай-дай!','Моё-моё!','Ещё!']));
       updateHUD();
@@ -1217,13 +1274,13 @@ function airBombsUpdate(dt){
 function heroUpdate(dt){
   heroTimer-=dt;
   if(!hero){
-    if(heroTimer<=0&&snake.people.length>=3){
+    if(heroTimer<=0&&(C.boss||snake.people.length>=3)){
       const side=randi(0,3);
       const p=side===0?{x:BORDER+40,y:rand(BORDER+120,WORLD_D-BORDER-120)}
         :side===1?{x:WORLD_W-BORDER-40,y:rand(BORDER+120,WORLD_D-BORDER-120)}
         :side===2?{x:rand(BORDER+120,WORLD_W-BORDER-120),y:BORDER+40}
         :{x:rand(BORDER+120,WORLD_W-BORDER-120),y:WORLD_D-BORDER-40};
-      hero={x:p.x,y:p.y,phase:0,life:16,castCd:2,hitCd:0,speed:150,heading:0,mesh:makePerson('hero',0)};
+      hero={x:p.x,y:p.y,phase:0,life:C.boss?1e9:16,castCd:2,hitCd:0,speed:C.boss?168:150,heading:0,mesh:makePerson('hero',0)};
       hero.mesh.position.set(p.x,0,p.y);
       worldGroup.add(hero.mesh);
       sfx.hero();say(p.x,p.y,64,'Стоять, змей!','#a8d4ff');
@@ -1249,7 +1306,7 @@ function heroUpdate(dt){
     for(const o of obstacles)pushOutOfRect(hero,18,o);
     if(hero.castCd<=0&&Math.sqrt(best)<420){
       shield={x:target.x,y:target.y,r:150,t:5};
-      hero.castCd=8;sfx.shield();
+      hero.castCd=C.boss?5:8;sfx.shield();
       say(hero.x,hero.y,64,'Щит!','#a8d4ff');
     }
   }
@@ -1261,7 +1318,7 @@ function heroUpdate(dt){
     }
   }
   if(hero.hitCd<=0&&dist2(hero.x,hero.y,snake.x,snake.y)<(HEAD_R+24)*(HEAD_R+24)){
-    hero.hitCd=3;
+    hero.hitCd=C.boss?2:3;
     snake.stun=.8;snake.angle+=Math.PI;
     snake.x+=Math.cos(snake.angle)*70;snake.y+=Math.sin(snake.angle)*70;
     keepInWorld(snake,HEAD_R);
@@ -1363,7 +1420,10 @@ let joyX=0,joyY=0;
 })();
 addEventListener('keydown',e=>{
   keys[e.code]=true;
-  if(e.code==='KeyP'&&running&&!interLevel){paused=!paused;document.getElementById('pauseLbl').classList.toggle('hidden',!paused);}
+  if(e.code==='KeyP'&&running&&!interLevel&&document.getElementById('gameMenu').classList.contains('hidden')){paused=!paused;document.getElementById('pauseLbl').classList.toggle('hidden',!paused);}
+  if(e.code==='Escape'&&running&&!interLevel){
+    if(document.getElementById('gameMenu').classList.contains('hidden'))openGameMenu();else closeGameMenu();
+  }
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();
 });
 addEventListener('keyup',e=>{keys[e.code]=false;});
@@ -1413,8 +1473,23 @@ function musicTick(){
     musicNext+=MUS_STEP;musicStep++;
   }
 }
+let musicMuted=false;
+try{musicMuted=localStorage.getItem('zmey_mute')==='1';}catch(e){}
+function updateMusicButtons(){
+  const t='🎵 МУЗЫКА: '+(musicMuted?'ВЫКЛ':'ВКЛ');
+  const b1=document.getElementById('musicBtn'),b2=document.getElementById('musicBtnMain');
+  if(b1)b1.textContent=t;
+  if(b2)b2.textContent='🎵 Музыка: '+(musicMuted?'выкл':'вкл');
+}
+function setMuted(m){
+  musicMuted=m;
+  try{localStorage.setItem('zmey_mute',m?'1':'0');}catch(e){}
+  updateMusicButtons();
+  if(m)stopMusic();
+  else if(running)startMusic();
+}
 function startMusic(){
-  if(musicPlaying)return;
+  if(musicPlaying||musicMuted)return;
   try{musicPlaying=true;musicStep=0;musicNext=audio().currentTime+.1;
     musicTimer=setInterval(musicTick,90);}catch(e){musicPlaying=false;}
 }
@@ -1455,7 +1530,7 @@ function update(dt){
   snake.sayT-=dt;
   if(snake.sayT<=0){snake.sayT=rand(3.4,6);snakeSay(Math.random()<.55?'Дай-дай!':pick(['Моё-моё!','Ням-ням!','Всё моё!']));}
   // повороты
-  const TURN=2.7;
+  const TURN=2.7*(1+.1*up.turn);
   let turn=0;
   if(keys['ArrowLeft']||keys['KeyA'])turn-=1;
   if(keys['ArrowRight']||keys['KeyD'])turn+=1;
@@ -1465,7 +1540,7 @@ function update(dt){
   if(keys['ArrowUp']||keys['KeyW']||joyY<-.35)spdK=1.28;
   if(keys['ArrowDown']||keys['KeyS']||joyY>.35)spdK=.55;
   if(snake.stun<=0){
-    const sp=snake.speed*spdK*(snake.boost>0?1.6:1);
+    const sp=snake.speed*(1+.08*up.speed)*spdK*(snake.boost>0?1.6:1);
     snake.x+=Math.cos(snake.angle)*sp*dt;
     snake.y+=Math.sin(snake.angle)*sp*dt;
   }
@@ -1513,6 +1588,8 @@ function update(dt){
   }
   parts=parts.filter(p=>p.ttl>0);
   camShake=Math.max(0,camShake-dt*40);
+  comboT-=dt;
+  if(comboT<=0&&combo>0){combo=0;updateHUD();}
   const m=String(Math.floor(elapsed/60)).padStart(2,'0'),s=String(Math.floor(elapsed%60)).padStart(2,'0');
   document.getElementById('timer').textContent=m+':'+s;
 }
@@ -1521,6 +1598,8 @@ function updateHUD(){
   document.getElementById('lenPeople').textContent=snake?snake.people.length:0;
   document.getElementById('level').textContent=level;
   document.getElementById('goal').textContent=Math.min(caughtThisLevel,C.target)+'/'+C.target;
+  document.getElementById('combo').textContent=combo>1?'×'+combo:'—';
+  document.getElementById('armor').textContent=up.armor;
 }
 let lvlTO=null;
 function levelComplete(){
@@ -1533,11 +1612,10 @@ function levelComplete(){
   document.getElementById('levelOverlay').classList.remove('hidden');
   lvlTO=setTimeout(()=>{
     if(!interLevel)return;
-    level++;C=cfg();caughtThisLevel=0;
-    unlockLevel(level);scoreAtLevelStart=score;
-    resetRound();
     document.getElementById('levelOverlay').classList.add('hidden');
-    interLevel=false;
+    level++;C=cfg();caughtThisLevel=0;
+    unlockLevel(level);
+    openShop();
   },2600);
 }
 function gameOver(){
@@ -1630,8 +1708,9 @@ function drawMinimap(){
   mmCtx.lineTo((snake.x+Math.cos(snake.angle)*180)*kx,(snake.y+Math.sin(snake.angle)*180)*ky);
   mmCtx.stroke();
   for(const n of npcs){
-    mmCtx.fillStyle=(n.type==='deputy'||n.type==='son')?'#ff5a4a':'#ffd54d';
-    mmCtx.beginPath();mmCtx.arc(n.x*kx,n.y*ky,2.4,0,7);mmCtx.fill();
+    const trapN=(n.type==='deputy'||n.type==='son');
+    mmCtx.fillStyle=trapN?'#ff5a4a':(n.gold?'#fff200':'#ffd54d');
+    mmCtx.beginPath();mmCtx.arc(n.x*kx,n.y*ky,n.gold?3.4:2.4,0,7);mmCtx.fill();
   }
   for(const it of items)if(it.kind==='bomb'){mmCtx.fillStyle='#ff5a4a';mmCtx.beginPath();mmCtx.arc(it.x*kx,it.y*ky,2,0,7);mmCtx.fill();}
   if(hero){mmCtx.fillStyle='#57c7ff';mmCtx.beginPath();mmCtx.arc(hero.x*kx,hero.y*ky,3.2,0,7);mmCtx.fill();}
@@ -1660,7 +1739,19 @@ for(let i=0;i<3;i++){
 const deskI=new THREE.Mesh(new THREE.BoxGeometry(150,10,90),mat(0x4a3a26));
 deskI.position.set(0,-6,10);introScene.add(deskI);
 let audioUnlocked=false;
-function unlockAudio(){if(audioUnlocked)return;audioUnlocked=true;try{const a=audio();a.resume&&a.resume();}catch(e){}}
+function unlockAudio(){
+  if(audioUnlocked)return;audioUnlocked=true;
+  try{const a=audio();a.resume&&a.resume();}catch(e){}
+  try{ // iOS: тихий <audio> переводит аудиосессию в режим воспроизведения (игнорирует беззвучный переключатель)
+    const el=document.createElement('audio');
+    el.setAttribute('playsinline','');
+    el.src='data:audio/wav;base64,UklGRqQMAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YYAMAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==';
+    el.loop=true;el.volume=.01;
+    el.play().catch(()=>{});
+    window._silentAudio=el;
+  }catch(e){}
+}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&AC&&AC.resume)AC.resume().catch(()=>{});});
 addEventListener('pointerdown',unlockAudio);
 addEventListener('keydown',unlockAudio);
 let introT=0,mumbleT=0,daiT=2.5;
@@ -1699,12 +1790,38 @@ function frame(t){
 }
 requestAnimationFrame(frame);
 
+function openShop(){
+  renderShop();
+  document.getElementById('shopOverlay').classList.remove('hidden');
+}
+function renderShop(){
+  document.getElementById('shopMoney').textContent=score;
+  const g=document.getElementById('shopGrid');g.innerHTML='';
+  for(const it of SHOP){
+    const lvlN=up[it.k],maxed=lvlN>=it.max,cost=it.cost(lvlN);
+    const d=document.createElement('div');d.className='shopItem';
+    d.innerHTML='<div style="font-size:26px">'+it.icon+'</div><b>'+it.name+'</b>'+
+      '<div style="font-size:12px;opacity:.8">'+it.desc+'</div>'+
+      '<div style="font-size:12px;margin:3px 0">уровень: '+lvlN+'/'+it.max+'</div>';
+    const b=document.createElement('button');
+    b.textContent=maxed?'МАКС':cost+' 💰';
+    b.disabled=maxed||score<cost;
+    b.onclick=()=>{if(score>=cost&&up[it.k]<it.max){score-=cost;up[it.k]++;updateHUD();renderShop();}};
+    d.appendChild(b);g.appendChild(d);
+  }
+}
+document.getElementById('shopNext').onclick=()=>{
+  document.getElementById('shopOverlay').classList.add('hidden');
+  scoreAtLevelStart=score;
+  resetRound();
+  interLevel=false;
+};
 let bannerTO=null;
 function showBanner(){
   const b=document.getElementById('lvlBanner');
   const n=C.target;
   const word=(n%10===1&&n%100!==11)?'жителя':'жителей';
-  b.innerHTML='<div class="bTitle">'+(C.tutorial?'🎓 ИНСТРУКТАЖ':'УРОВЕНЬ '+level)+'</div>'+
+  b.innerHTML='<div class="bTitle">'+(C.tutorial?'🎓 ИНСТРУКТАЖ':(C.boss?'⚔️ БОСС-УРОВЕНЬ '+level:'УРОВЕНЬ '+level))+'</div>'+
     '<div class="bGoal">🎯 Мобилизуй '+n+' '+word+'!</div>';
   b.classList.remove('hidden');b.style.opacity=1;
   clearTimeout(bannerTO);
@@ -1754,6 +1871,8 @@ function unlockLevel(l){
 }
 function startGame(){
   level=selectedLevel;C=cfg();caughtThisLevel=0;score=0;scoreAtLevelStart=0;elapsed=0;interLevel=false;
+  up={speed:0,turn:0,magnet:0,armor:0};combo=0;comboT=0;
+  document.getElementById('shopOverlay').classList.add('hidden');
   document.getElementById('levelOverlay').classList.add('hidden');
   resetRound();
   document.getElementById('startOverlay').classList.add('hidden');
@@ -1761,8 +1880,38 @@ function startGame(){
   running=true;paused=false;
   document.getElementById('pauseLbl').classList.add('hidden');
   clearTimeout(lvlTO);clearJingles();
-  audio();goFullscreen();startMusic();
+  unlockAudio();try{const a=audio();a.resume&&a.resume();}catch(e){}
+  if(isTouch)document.getElementById('menuOpenBtn').classList.remove('hidden');
+  goFullscreen();startMusic();
   snakeSay('Ням-ням!');
+}
+function openGameMenu(){
+  if(!running||interLevel)return;
+  paused=true;
+  document.getElementById('pauseLbl').classList.add('hidden');
+  updateMusicButtons();
+  document.getElementById('gameMenu').classList.remove('hidden');
+}
+function closeGameMenu(){
+  document.getElementById('gameMenu').classList.add('hidden');
+  if(running)paused=false;
+}
+document.getElementById('resumeBtn').onclick=closeGameMenu;
+document.getElementById('menuOpenBtn').onclick=openGameMenu;
+document.getElementById('toLevelsBtn').onclick=()=>{
+  document.getElementById('gameMenu').classList.add('hidden');
+  stopMusic();clearTimeout(lvlTO);clearJingles();
+  document.getElementById('hint').classList.add('hidden');
+  document.getElementById('startOverlay').classList.remove('hidden');
+  running=false;paused=false;
+  selectedLevel=Math.min(level,maxUnlocked);
+  renderLevelSelect();
+};
+document.getElementById('musicBtn').onclick=()=>setMuted(!musicMuted);
+document.getElementById('musicBtnMain').onclick=()=>setMuted(!musicMuted);
+updateMusicButtons();
+if(/iPhone|iPad|iPod/.test(navigator.userAgent)&&!navigator.standalone){
+  try{document.getElementById('iosTip').classList.remove('hidden');}catch(e){}
 }
 document.getElementById('startBtn').onclick=startGame;
 document.getElementById('continueBtn').onclick=()=>{

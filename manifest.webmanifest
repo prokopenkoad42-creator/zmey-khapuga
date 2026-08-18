@@ -1,0 +1,10 @@
+{
+  "name": "Змей-Хапуга 3D",
+  "short_name": "Хапуга",
+  "start_url": ".",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#20351f",
+  "theme_color": "#20351f",
+  "icons": [{"src": "icon.png", "sizes": "512x512", "type": "image/png"}]
+}
