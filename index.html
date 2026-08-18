@@ -153,7 +153,16 @@ const sfx={
   free(){tone(700,.1,'square',.12,1200);},
   zap(){tone(1200,.2,'sawtooth',.15,100);},
   whistle(){tone(1500,.7,'sine',.09,250);},
-  win(){[523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,.18,'triangle',.22),i*130));},
+  win(){
+    // оригинальный 8-битный фанфар победы
+    const L=[[523,0,.13],[659,.13,.13],[784,.26,.13],[1047,.39,.26],
+             [784,.68,.11],[880,.79,.11],[988,.9,.11],[1047,1.01,.16],
+             [1319,1.17,.14],[1175,1.31,.14],[1047,1.45,.5]];
+    for(const [f,t,d] of L)setTimeout(()=>tone(f,d,'square',.14),t*1000);
+    const B=[[131,0,.36],[165,.39,.28],[196,.68,.32],[131,1.01,.42],[131,1.45,.55]];
+    for(const [f,t,d] of B)setTimeout(()=>tone(f,d,'triangle',.22),t*1000);
+    setTimeout(()=>{tone(523,.5,'square',.07);tone(659,.5,'square',.07);tone(784,.5,'square',.07);},1450);
+  },
   over(){tone(400,.3,'sawtooth',.2,300);setTimeout(()=>tone(300,.3,'sawtooth',.2,220),280);setTimeout(()=>tone(200,.7,'sawtooth',.22,80),560);}
 };
 
