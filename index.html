@@ -65,7 +65,7 @@
     #hud{padding:6px 8px}
     #lvlBanner .bTitle{font-size:28px}
     #lvlBanner .bGoal{font-size:16px;padding:6px 14px}
-    #hint{bottom:196px;font-size:13px;max-width:92vw;text-align:center}
+    #hint{top:62px;bottom:auto;font-size:13px;max-width:94vw;text-align:center}
     .lvlBtn{padding:8px 13px;font-size:14px}
     .bub{font-size:12px;padding:3px 7px}
   }
@@ -88,6 +88,8 @@
   #menuOpenBtn{position:fixed;top:64px;left:10px;z-index:7;width:46px;height:46px;border-radius:12px;background:rgba(20,30,20,.72);color:#fff;border:2px solid rgba(255,255,255,.3);font-size:22px;cursor:pointer}
   #playerName{font-size:16px;padding:9px 14px;border-radius:10px;border:2px solid #567d3e;background:#16240f;color:#eaf5e2;text-align:center;width:230px;outline:none}
   #playerName:focus{border-color:#a6e26b}
+  #tutNextBtn{display:block;margin:8px auto 0;font-size:15px;font-weight:bold;padding:8px 24px;border:none;border-radius:9px;background:#7cc24e;color:#15260d;cursor:pointer;box-shadow:0 3px 0 #4c7d2c}
+  #tutNextBtn:active{transform:translateY(2px);box-shadow:0 1px 0 #4c7d2c}
   #dashBtn{position:fixed;right:22px;bottom:30px;z-index:6;width:76px;height:76px;border-radius:50%;background:rgba(255,213,77,.75);color:#5a4500;border:3px solid rgba(255,255,255,.5);font-size:32px;touch-action:none;box-shadow:0 4px 12px rgba(0,0,0,.35)}
   #gameMenu .card button{display:block;width:260px;margin:6px auto}
   .btnGray{background:#8a8f7a!important;box-shadow:0 5px 0 #5c6152!important}
@@ -876,7 +878,7 @@ let level=1, caughtThisLevel=0;
 let up={speed:0,turn:0,magnet:0,armor:0,dash:0};
 let combo=0,comboT=0;
 let delivered=0,goldCaught=0,levelTime=0,deliverZone=null,deliverZoneMesh=null;
-let dashCd=0,dashT=0,dashWanted=false,panicT=0,goldRushT=0,eventT=25;
+let dashCd=0,dashT=0,dashWanted=false,panicT=0,goldRushT=0,eventT=25,turnSm=0;
 let pigT=0,pigItemT=25;
 let playerName='';
 try{playerName=(localStorage.getItem('zmey_name')||'').slice(0,14);}catch(e){}
@@ -1390,7 +1392,7 @@ const TUT=[
   done:()=>tutFlags.energy},
  {t:'💣 Бомба: БАБАХ, −3 хвоста и оглушение — тебе и жителям рядом. Обходи!',
   setup(){spawnItem('bomb');const it=items[items.length-1];it.x=WORLD_W/2-320;it.y=WORLD_D/2+110;it.mesh.position.set(it.x,0,it.y);},
-  timer:6},
+  confirm:true},
  {t:'🐷 Хрю-бустер: жители на 30с — медленные свинки. Подбери его и поймай свинку!',
   setup(){spawnItem('pig');const it=items[items.length-1];it.x=WORLD_W/2+170;it.y=WORLD_D/2-170;it.mesh.position.set(it.x,0,it.y);spawnNPC('man',{x:WORLD_W/2-280,y:WORLD_D/2-120});},
   needCiv:true,
@@ -1406,32 +1408,39 @@ const TUT=[
     sfx.hero();
     startCine(hero.x,hero.y,'🦸 Супергерой!',4);
   },
-  timer:9},
+  confirm:true},
  {t:'💥 СОБЫТИЯ: каждые ~25 секунд что-то происходит. Например — авианалёт! Бомбы падают с неба',
   setup(){
     eventBanner('💣 АВИАНАЛЁТ!');
     for(const [ox,oy] of [[-380,-200],[330,240],[-160,290]])dropBomb(WORLD_W/2+ox,WORLD_D/2+oy,300);
   },
-  timer:7},
+  confirm:true},
  {t:'🎯 Миссии меняются: на время ⏱, доставка в пункт сбора 📦, охота на золотых 👑. И события: авианалёт, паника, лихорадка! Удачи!',
-  timer:8},
+  confirm:true},
 ];
 let cine=null;
 function startCine(x,y,label,dur){
   cine={x,y,t:0,dur:dur||3.5};
   if(label)eventBanner(label);
 }
-let tutStep=0,tutTimer=0;
+let tutStep=0,tutTimer=0,tutNextClicked=false;
 let tutFlags={energy:false,pig:false,dash:false};
 let forceGold=false;
 function tutSetHint(){
   const h=document.getElementById('hint');
   h.textContent='🎓 Шаг '+(tutStep+1)+'/'+TUT.length+': '+TUT[tutStep].t;
+  if(TUT[tutStep].confirm){
+    const b=document.createElement('button');
+    b.id='tutNextBtn';
+    b.textContent=tutStep>=TUT.length-1?'В БОЙ! ➜':'Дальше ➜';
+    b.onclick=()=>{if(!cine)tutNextClicked=true;};
+    h.appendChild(b);
+  }
   h.classList.remove('hidden');
   updateHUD();
 }
 function tutInit(){
-  tutStep=0;tutTimer=TUT[0].timer||0;
+  tutStep=0;tutTimer=TUT[0].timer||0;tutNextClicked=false;
   tutFlags={energy:false,pig:false,dash:false};
   if(TUT[0].setup)TUT[0].setup();
   tutSetHint();
@@ -1451,9 +1460,11 @@ function tutorialUpdate(dt){
     }
   }
   let ok=false;
-  if(st.timer!==undefined){tutTimer-=dt;ok=tutTimer<=0;}
+  if(st.confirm)ok=tutNextClicked;
+  else if(st.timer!==undefined){tutTimer-=dt;ok=tutTimer<=0;}
   else ok=st.done();
   if(!ok)return;
+  tutNextClicked=false;
   tutStep++;
   if(tutStep>=TUT.length){levelComplete();return;}
   tutTimer=TUT[tutStep].timer||0;
@@ -1787,8 +1798,12 @@ function update(dt){
   let turn=0;
   if(keys['ArrowLeft']||keys['KeyA'])turn-=1;
   if(keys['ArrowRight']||keys['KeyD'])turn+=1;
-  turn=clamp(turn+joyX*1.25,-1,1);
-  snake.angle+=turn*TURN*dt;
+  // джойстик: мёртвая зона + мягкая кривая отклика
+  const jAbs=Math.abs(joyX);
+  const jdz=jAbs<.14?0:Math.sign(joyX)*Math.pow((jAbs-.14)/.86,1.6);
+  turn=clamp(turn+jdz,-1,1);
+  turnSm+=(turn-turnSm)*Math.min(1,dt*7);
+  snake.angle+=turnSm*TURN*dt;
   let spdK=1;
   if(keys['ArrowUp']||keys['KeyW']||joyY<-.35)spdK=1.28;
   if(keys['ArrowDown']||keys['KeyS']||joyY>.35)spdK=.55;
@@ -2197,7 +2212,7 @@ function resetRound(){
   parts=[];camShake=0;heroTimer=C.heroDelay;
   delivered=0;goldCaught=0;levelTime=C.time||0;
   panicT=0;goldRushT=0;eventT=rand(18,26);dashCd=0;dashT=0;dashWanted=false;
-  deliverZone=null;deliverZoneMesh=null;pigT=0;pigItemT=rand(20,35);cine=null;
+  deliverZone=null;deliverZoneMesh=null;pigT=0;pigItemT=rand(20,35);cine=null;turnSm=0;
   planeTimer=C.tutorial?1e9:6;itemTimer=C.tutorial?1e9:3;droneTimer=C.tutorial?1e9:6;
   buildWorld();
   if(!C.tutorial)document.getElementById('hint').classList.add('hidden');
