@@ -1160,14 +1160,16 @@ function itemsUpdate(dt){
     if(it.mesh.userData.steam){it.mesh.userData.steam.position.y=18+Math.sin(it.phase*2)*4;it.mesh.userData.steam.material.opacity=.3+Math.sin(it.phase*2)*.2;}
     if(snake.stun<=0&&dist2(it.x,it.y,snake.x,snake.y)<(HEAD_R+18)*(HEAD_R+18)){
       if(it.kind==='bomb'){
-        it.dead=true;explodeAt(it.x,it.y,true);
+        it.dead=true;removeAndDispose(worldGroup,it.mesh);
+        explodeAt(it.x,it.y,true);
       }else if(it.kind==='energy'){
-        it.dead=true;snake.boost=4;sfx.dash();
+        it.dead=true;removeAndDispose(worldGroup,it.mesh);
+        snake.boost=4;sfx.dash();
         snakeSay('Погнали!');
       }
     }
   }
-  items=items.filter(it=>!it.dead);
+  items=items.filter(it=>{if(it.dead&&it.mesh.parent)removeAndDispose(worldGroup,it.mesh);return !it.dead;});
 }
 
 /* ============ ВЗРЫВЫ И АВИАБОМБЫ ============ */
