@@ -2,11 +2,14 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>Змей-Хапуга 3D</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐍</text></svg>">
 <style>
   html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#87ceeb;font-family:"Trebuchet MS",Verdana,sans-serif;user-select:none}
-  #game{display:block;width:100vw;height:100vh}
+  #game{display:block;width:100vw;height:100vh;touch-action:none}
+  #joyBase{position:fixed;left:26px;bottom:26px;width:150px;height:150px;border-radius:50%;background:rgba(20,30,20,.45);border:3px solid rgba(255,255,255,.35);touch-action:none;z-index:6}
+  #joyKnob{position:absolute;left:50%;top:50%;width:62px;height:62px;margin:-31px 0 0 -31px;border-radius:50%;background:rgba(166,226,107,.85);border:3px solid rgba(255,255,255,.5);box-shadow:0 4px 10px rgba(0,0,0,.4)}
   #bubbles{position:fixed;inset:0;pointer-events:none;overflow:hidden}
   .bub{position:absolute;transform:translate(-50%,-100%);background:rgba(15,25,12,.78);color:#fff;font-weight:bold;font-size:15px;padding:4px 10px;border-radius:9px;white-space:nowrap}
   #hud{position:fixed;top:0;left:0;right:0;display:flex;align-items:flex-start;justify-content:space-between;padding:10px 14px;pointer-events:none;color:#fff}
@@ -25,6 +28,9 @@
   #introWrap .cap{font-size:12px;color:#9cbf85}
   #briefRow .rules{flex:1;margin:0}
   #hint{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);font-size:17px;font-weight:bold;color:#fff;z-index:5}
+  #lvlBanner{position:fixed;top:34%;left:50%;transform:translate(-50%,-50%);text-align:center;z-index:5;pointer-events:none;transition:opacity .6s}
+  #lvlBanner .bTitle{font-size:48px;font-weight:bold;color:#ffd54d;text-shadow:0 4px 0 rgba(0,0,0,.55);letter-spacing:2px}
+  #lvlBanner .bGoal{display:inline-block;font-size:26px;font-weight:bold;color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.5);background:rgba(20,30,20,.65);border:2px solid rgba(255,255,255,.3);border-radius:14px;padding:8px 22px;margin-top:10px}
   .card h1{margin:0 0 6px;font-size:38px;color:#a6e26b;text-shadow:0 3px 0 #2c4a1e}
   .card h2{margin:0 0 16px;font-size:16px;font-weight:normal;color:#bcd8a8}
   .card p{margin:7px 0;font-size:15px;line-height:1.45;text-align:left}
@@ -36,16 +42,18 @@
   kbd{background:#0e1a0c;border:1px solid #567d3e;border-radius:5px;padding:1px 7px;font-family:inherit}
   #levelSelect{margin-top:12px}
   .lvlBtn{display:inline-block;margin:3px;padding:9px 16px;border-radius:9px;background:#2c4a1e;border:2px solid #567d3e;color:#cfe8b8;font-size:16px;font-weight:bold;cursor:pointer}
-  .lvlBtn.sel{background:#7cc24e;color:#15260d;border-color:#a6e26b}
+  .lvlBtn.sel{background:#7cc24e;color:#15260d;border-color:#fff;box-shadow:0 0 14px #a6e26b;transform:scale(1.1)}
   #menuBtn{background:#8a8f7a;box-shadow:0 5px 0 #5c6152;margin-left:10px}
   #menuBtn:active{box-shadow:0 2px 0 #5c6152}
 </style>
 </head>
 <body>
 <canvas id="game"></canvas>
+<div id="joyBase" class="hidden"><div id="joyKnob"></div></div>
 <div id="bubbles"></div>
 
 <div id="hint" class="panel hidden"></div>
+<div id="lvlBanner" class="hidden"></div>
 
 <div id="hud">
   <div class="panel" id="stats">
@@ -168,7 +176,11 @@ const sfx={
 
 /* ---- голос змея (синтез речи, мультяшный тон) ---- */
 let voiceRu=null,lastSpeak=0;
-function initVoice(){try{const vs=speechSynthesis.getVoices();voiceRu=vs.find(v=>/^ru/i.test(v.lang))||null;}catch(e){}}
+function initVoice(){try{
+  const vs=speechSynthesis.getVoices();
+  const ru=vs.filter(v=>/ru/i.test(v.lang));
+  voiceRu=ru.find(v=>/(yuri|юрий|dmitr|дмитр|pavel|павел|ruslan|руслан|male|муж)/i.test(v.name))||ru[0]||null;
+}catch(e){}}
 if(window.speechSynthesis){initVoice();speechSynthesis.onvoiceschanged=initVoice;}
 function speak(text){
   try{
@@ -178,8 +190,9 @@ function speak(text){
     lastSpeak=now;
     const u=new SpeechSynthesisUtterance(text.replace(/[^\u0410-\u044f\u0401\u0451! -]/g,''));
     if(voiceRu)u.voice=voiceRu;
-    u.lang='ru-RU';u.pitch=1.7;u.rate=1.2;u.volume=.9;
+    u.lang='ru-RU';u.pitch=.55;u.rate=1.02;u.volume=.95;
     speechSynthesis.cancel();speechSynthesis.speak(u);
+    tone(82,.45,'sawtooth',.05,60); // хрипотца под голосом
   }catch(e){}
 }
 
@@ -1241,6 +1254,29 @@ function dronesUpdate(dt){
 
 /* ============ ВВОД (повороты как в Snake 3) ============ */
 const keys={};
+let joyX=0,joyY=0;
+const isTouch=('ontouchstart' in window)||navigator.maxTouchPoints>0;
+(function(){
+  const base=document.getElementById('joyBase'),knob=document.getElementById('joyKnob');
+  if(!base)return;
+  if(isTouch)base.classList.remove('hidden');
+  let active=null;
+  function setKnob(dx,dy){knob.style.transform='translate('+dx+'px,'+dy+'px)';}
+  function handle(e){
+    const r=base.getBoundingClientRect();
+    const cx=r.left+r.width/2,cy=r.top+r.height/2;
+    let dx=e.clientX-cx,dy=e.clientY-cy;
+    const d=Math.hypot(dx,dy),max=r.width/2-24;
+    if(d>max){dx=dx/d*max;dy=dy/d*max;}
+    joyX=dx/max;joyY=dy/max;
+    setKnob(dx,dy);
+  }
+  base.addEventListener('pointerdown',e=>{active=e.pointerId;base.setPointerCapture(e.pointerId);handle(e);e.preventDefault();});
+  base.addEventListener('pointermove',e=>{if(active===e.pointerId)handle(e);});
+  const end=e=>{if(active===e.pointerId){active=null;joyX=0;joyY=0;setKnob(0,0);}};
+  base.addEventListener('pointerup',end);
+  base.addEventListener('pointercancel',end);
+})();
 addEventListener('keydown',e=>{
   keys[e.code]=true;
   if(e.code==='KeyP'&&running)paused=!paused;
@@ -1287,10 +1323,11 @@ function update(dt){
   let turn=0;
   if(keys['ArrowLeft']||keys['KeyA'])turn-=1;
   if(keys['ArrowRight']||keys['KeyD'])turn+=1;
+  turn=clamp(turn+joyX*1.25,-1,1);
   snake.angle+=turn*TURN*dt;
   let spdK=1;
-  if(keys['ArrowUp']||keys['KeyW'])spdK=1.28;
-  if(keys['ArrowDown']||keys['KeyS'])spdK=.55;
+  if(keys['ArrowUp']||keys['KeyW']||joyY<-.35)spdK=1.28;
+  if(keys['ArrowDown']||keys['KeyS']||joyY>.35)spdK=.55;
   if(snake.stun<=0){
     const sp=snake.speed*spdK*(snake.boost>0?1.6:1);
     snake.x+=Math.cos(snake.angle)*sp*dt;
@@ -1500,7 +1537,7 @@ function introUpdate(dt){
   if(audioUnlocked){
     if(talking){
       mumbleT-=dt;
-      if(mumbleT<=0){mumbleT=rand(.11,.18);tone(rand(190,460),.09,'square',.05,rand(140,380));}
+      if(mumbleT<=0){mumbleT=rand(.12,.2);tone(rand(85,200),.11,'sawtooth',.07,rand(55,140));tone(rand(170,300),.08,'square',.025,rand(120,220));}
     }
     daiT-=dt;
     if(daiT<=0){daiT=rand(4,7);speak('Дай-дай!');}
@@ -1521,6 +1558,17 @@ function frame(t){
 }
 requestAnimationFrame(frame);
 
+let bannerTO=null;
+function showBanner(){
+  const b=document.getElementById('lvlBanner');
+  const n=C.target;
+  const word=(n%10===1&&n%100!==11)?'жителя':'жителей';
+  b.innerHTML='<div class="bTitle">'+(C.tutorial?'🎓 ИНСТРУКТАЖ':'УРОВЕНЬ '+level)+'</div>'+
+    '<div class="bGoal">🎯 Мобилизуй '+n+' '+word+'!</div>';
+  b.classList.remove('hidden');b.style.opacity=1;
+  clearTimeout(bannerTO);
+  bannerTO=setTimeout(()=>{b.style.opacity=0;bannerTO=setTimeout(()=>b.classList.add('hidden'),700);},3000);
+}
 function resetRound(){
   if(snake){worldGroup.remove(snake.headMesh);for(const m of snake.segMeshes)worldGroup.remove(m);for(const p of snake.people)worldGroup.remove(p.mesh);}
   if(hero){worldGroup.remove(hero.mesh);hero=null;}
@@ -1536,6 +1584,7 @@ function resetRound(){
   camYaw=snake.angle;
   camPosSm.set(snake.x-Math.cos(camYaw)*215,125,snake.y-Math.sin(camYaw)*215);
   updateHUD();
+  if(running||!snake)showBanner();else showBanner();
 }
 let maxUnlocked=1;
 try{maxUnlocked=Math.max(1,parseInt(localStorage.getItem('zmey_max')||'1',10)||1);}catch(e){}
