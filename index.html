@@ -2007,14 +2007,19 @@ document.getElementById('shopNext').onclick=()=>{
   resetRound();
   interLevel=false;
 };
-/* ============ ОБЩИЙ РЕЙТИНГ (kvdb.io) ============ */
-const LB_URL='https://kvdb.io/769kamAFaVYB4h9KLDaf2m/top';
+/* ============ ОБЩИЙ РЕЙТИНГ (textdb.online) ============ */
+const LB_KEY='zmey_khapuga_lb_769kamAF2026';
+const LB_READ='https://textdb.online/'+LB_KEY;
 function escapeHtml(t){return String(t).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));}
 async function lbFetch(){
-  const r=await fetch(LB_URL+'?t='+Date.now());
-  if(r.status===404)return[];
+  const r=await fetch(LB_READ+'?t='+Date.now());
   if(!r.ok)throw new Error('lb');
-  try{const j=JSON.parse(await r.text());return Array.isArray(j)?j:[];}catch(e){return[];}
+  const txt=(await r.text()).trim();
+  if(!txt)return[];
+  try{const j=JSON.parse(txt);return Array.isArray(j)?j:[];}catch(e){return[];}
+}
+async function lbSave(top){
+  await fetch('https://textdb.online/update/?key='+LB_KEY+'&value='+encodeURIComponent(JSON.stringify(top)),{mode:'no-cors'});
 }
 async function lbSubmit(){
   const line=document.getElementById('lbLine');
@@ -2027,8 +2032,9 @@ async function lbSubmit(){
     if(mine){if(score>mine.s){mine.s=score;mine.l=level;}}
     else top.push({n:playerName,s:score,l:level});
     top.sort((a,b)=>b.s-a.s);top=top.slice(0,15);
-    const pr=await fetch(LB_URL,{method:'PUT',body:JSON.stringify(top)});
-    if(!pr.ok)throw new Error('put');
+    await lbSave(top);
+    await new Promise(res=>setTimeout(res,700));
+    try{top=await lbFetch();}catch(e){}
     const place=top.findIndex(e=>e.n===playerName)+1;
     line.textContent=place>0?'🌍 Место в общем топе: #'+place:'🌍 Результат отправлен';
   }catch(e){line.textContent='🌍 Общий рейтинг недоступен';}
